@@ -5,9 +5,11 @@ import pathlib from "path";
 import * as executor from "./executor";
 import { createConverter } from "./converter";
 import {
+  createConverterWithFileWatcher,
+  isPerformanceUnstableEnv,
+  isTsWatchBroken,
   runInTmpAsync,
   WaitFileEventFunc,
-  createConverterWithFileWatcher,
   sleep,
 } from "./testutil";
 import ts from "@tslab/typescript-for-tslab";
@@ -391,14 +393,47 @@ describe("execute", () => {
     end = Date.now();
     let t1 = end - start;
     expect(ex.locals.got).toBe(want);
-    expect(t1 / t0).toBeGreaterThan(0.5);
-    expect(t0 / t1).toBeGreaterThan(0.5);
+    const threshold = isPerformanceUnstableEnv() ? 0.1 : 0.5;
+    expect(t1 / t0).toBeGreaterThan(threshold);
+    expect(t0 / t1).toBeGreaterThan(threshold);
+  });
+
+  it("overhead", async () => {
+    // Check the incremental execution overhead is
+    // less than 50ms/execution.
+    expect(
+      await ex.execute(`
+      let n = 0;
+    `)
+    ).toBe(true);
+    const start = Date.now();
+    for (let i = 1; i <= 20; ++i) {
+      expect(
+        await ex.execute(`
+        n += ${i};
+      `)
+      ).toBe(true);
+    }
+    const end = Date.now();
+    expect(end - start).toBeLessThan(1000);
+    expect(ex.locals).toEqual({
+      n: 210,
+    });
   });
 
   it("fixed bug#32", async () => {
     // https://github.com/yunabe/tslab/issues/32 is reproducible.
     expect(await ex.execute(`let b = {}.constructor === Object`)).toBe(true);
     expect(ex.locals.b).toEqual(true);
+  });
+
+  it("check bug#42", async () => {
+    // Checks if https://github.com/yunabe/tslab/issues/42 is reproducible in CI.
+    expect(
+      await ex.execute(`let person = new Object(); person['name'] = 'yunabe';`)
+    ).toBe(true);
+    expect(consoleErrorCalls).toEqual([]);
+    expect(ex.locals.person).toEqual({ name: "yunabe" });
   });
 });
 
@@ -537,6 +572,10 @@ describe("externalFiles", () => {
   });
 
   it("changed", async () => {
+    if (isTsWatchBroken()) {
+      // Skip this test when ts.watchFile is broken.
+      return;
+    }
     await runInTmpAsync("pkg", async (dir) => {
       const srcPath = normalizeJoin(process.cwd(), dir, "a.ts");
       fs.writeFileSync(srcPath, 'export const aVal = "ABC";');

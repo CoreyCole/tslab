@@ -2,17 +2,21 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, typescript4.6 ]
+    tags: [ '*' ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [ published ]
 
 jobs:
   build:
 
-    runs-on: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [18.x, 20.x]
 
     steps:

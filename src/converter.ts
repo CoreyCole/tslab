@@ -114,7 +114,7 @@ function getTranspileTargets() {
   // https://github.com/microsoft/TypeScript/blob/master/src/lib/es2019.full.d.ts
   const nodeVersion = semver.major(process.version);
   if (nodeVersion >= 18) {
-    return { target: ts.ScriptTarget.ES2022, lib: ["es2022"] };
+    return { target: ts.ScriptTarget.ES2022, lib: ["ES2022"] };
   }
   if (nodeVersion >= 16) {
     return { target: ts.ScriptTarget.ES2021, lib: ["es2021"] };
@@ -142,8 +142,8 @@ export function createConverter(options?: ConverterOptions): Converter {
 
   const { target: transpileTarget, lib: transpileLib } = getTranspileTargets();
   if (options?.isBrowser) {
-    transpileLib.push("dom");
-    transpileLib.push("dom.iterable");
+    transpileLib.push("DOM");
+    transpileLib.push("DOM.Iterable");
   }
   /**
    * A prefix to sources to handle sources as external modules
